@@ -6,6 +6,16 @@ import subprocess as sub
 import threading
 import logging
 import warnings
+
+try:
+    import uploadserver
+except ImportError:
+    try:
+        sub.check_call(["pip3", "install", "uploadserver"])
+    except:
+        print("Install uploadserver failed")
+        exit(1)
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import telnetlib
@@ -44,20 +54,25 @@ class shellserver:
         match (command):
             case (cmdtype.EXEC_CMD):
                 # execute shell command
+                logging.info("start execute shell command")
                 idata = args[0]
             case (cmdtype.GET):
                 # get/download file
+                logging.info("start download file from the device")
                 remote_file, local_file = args
                 idata = f"wget -O {remote_file} http://{HTTP_IP}:{HTTP_PORT}/{local_file}"                
             case (cmdtype.PUT):
                 # put/upload file
                 # remote_file, local_file = args
+                logging.info("start upload file to the device")
                 pass
             case (_):
-                logging.info("Unsupported command operations")
+                logging.warning("Unsupported command operations")
         # end match
 
-        print(self.once_interact(cs, idata).decode())
+        self.once_interact(cs, idata)
+
+        # print(self.once_interact(cs, idata).decode())
 
     def server(self, port):
         self.ssock = socket.create_server(("", port), reuse_port=True)
