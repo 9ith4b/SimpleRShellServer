@@ -96,7 +96,7 @@ class shellserver:
 
 def create_httpserver():
     p = sub.Popen(
-        ["python3", "-m", "uploadserver", "-d", "tools"],
+        ["python3", "-m", "uploadserver", str(HTTP_PORT), "-d", "tools"],
         stdout=sub.PIPE,
         stderr=sub.PIPE,
         stdin=sub.PIPE
