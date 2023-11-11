@@ -63,9 +63,10 @@ class shellserver:
                 idata = f"wget -O {remote_file} http://{HTTP_IP}:{HTTP_PORT}/{local_file}"                
             case (cmdtype.PUT):
                 # put/upload file
-                # remote_file, local_file = args
                 logging.info("start upload file to the device")
-                pass
+                remote_file, local_file = args
+                # idata = f"curl -k -X POST http://{HTTP_IP}:{HTTP_PORT}/upload -F 'files=@multiple-example-1.txt' -F 'files=@multiple-example-2.txt'"
+                
             case (_):
                 logging.warning("Unsupported command operations")
         # end match
